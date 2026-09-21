@@ -14,6 +14,16 @@ export const schema = `
     CREATE TABLE IF NOT EXISTS access_links (hash TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES access_requests(id), email TEXT NOT NULL, expires BIGINT NOT NULL);
     CREATE INDEX IF NOT EXISTS access_links_email ON access_links(email);
   
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_name TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_email TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS patient_phone TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS summary TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS google_calendar_id TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS google_etag TEXT;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS google_event_link TEXT;
+CREATE TABLE IF NOT EXISTS calendar_operations (id TEXT PRIMARY KEY, booking_id TEXT NOT NULL, user_id TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, state TEXT NOT NULL, error TEXT, created BIGINT NOT NULL, updated BIGINT NOT NULL);
+CREATE INDEX IF NOT EXISTS calendar_operations_pending ON calendar_operations(state,updated);
 CREATE INDEX IF NOT EXISTS bookings_doctor_time ON bookings(doctor_id,status,start,"end");
 ALTER TABLE voice_sessions ADD COLUMN IF NOT EXISTS expires_at BIGINT;
 CREATE INDEX IF NOT EXISTS voice_sessions_state_created ON voice_sessions(state,created);

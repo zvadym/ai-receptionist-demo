@@ -13,7 +13,7 @@ const en = {
   unknown: 'Availability could not be checked for this doctor.',
   hours: 'Mon–Fri 09:00–17:00 · Break 12:00–13:00',
   hint: 'Free time is unoccupied working time. An appointment must fit its full duration and start at least 30 minutes from now.',
-  sourceNote: 'Google busy times and demo bookings are shown together. Bookings are saved in this demo; Google calendars are read-only.',
+  sourceNote: 'Google busy times and demo bookings are shown together. Confirmed bookings and changes are saved to the doctor’s Google Calendar.',
   scroll: 'Scroll horizontally to see the full week.',
 };
 type CalendarCopy = { [K in keyof typeof en]: string };
@@ -32,7 +32,7 @@ export const calendarCopy: Record<Language, CalendarCopy> = {
     unknown: 'Не вдалося перевірити зайнятість цього лікаря.',
     hours: 'Пн–Пт 09:00–17:00 · Перерва 12:00–13:00',
     hint: '«Вільно» — незайнятий робочий час. Прийом має вміщатися повністю й починатися щонайменше через 30 хвилин.',
-    sourceNote: 'Показуємо зайнятість Google та демозаписи разом. Бронювання зберігаються в демо; календарі Google доступні лише для перегляду.',
+    sourceNote: 'Показуємо зайнятість Google та демозаписи разом. Підтверджені записи та зміни зберігаються в Google-календарі лікаря.',
     scroll: 'Прокрутіть горизонтально, щоб побачити весь тиждень.',
   },
   de: {
@@ -48,7 +48,7 @@ export const calendarCopy: Record<Language, CalendarCopy> = {
     unknown: 'Die Verfügbarkeit konnte nicht geprüft werden.',
     hours: 'Mo–Fr 09:00–17:00 · Pause 12:00–13:00',
     hint: 'Frei bedeutet unbelegte Arbeitszeit. Der gesamte Termin muss hineinpassen und mindestens 30 Minuten in der Zukunft beginnen.',
-    sourceNote: 'Google-Belegungen und Demo-Termine werden gemeinsam angezeigt. Buchungen werden in dieser Demo gespeichert; Google-Kalender sind schreibgeschützt.',
+    sourceNote: 'Google-Belegungen und Demo-Termine werden gemeinsam angezeigt. Bestätigte Buchungen und Änderungen werden im Google-Kalender des Arztes gespeichert.',
     scroll: 'Horizontal scrollen, um die gesamte Woche zu sehen.',
   },
 };

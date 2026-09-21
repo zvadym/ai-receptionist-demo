@@ -103,7 +103,7 @@ test('office hours, lunch, date horizon and timezone are enforced', async () => 
 test('tool replay returns the exact persisted result without another mutation', async () => {
     const u = (await user('Tool'));
     const slot = (await listSlots('checkup', clinicDates()[5]))[0];
-    const result = (await executeTool(u, 'test-session', 'prepare-1', 'prepare_booking', JSON.stringify({ doctor_id: doctor.id, service_id: 'checkup', start: slot.start })));
+    const result = (await executeTool(u, 'test-session', 'prepare-1', 'prepare_booking', JSON.stringify({ doctor_id: doctor.id, service_id: 'checkup', start: slot.start, patient_name: null, patient_email: null, patient_phone: null, summary: null })));
     assert.equal((await executeTool(u, 'test-session', 'prepare-1', 'prepare_booking', '{}')), result);
     const proposal = JSON.parse(result).result;
     const booked = (await executeTool(u, 'test-session', 'confirm-1', 'confirm_booking_change', JSON.stringify({ proposal_id: proposal.id })));
@@ -134,7 +134,7 @@ test('tools bind slots and booking changes to the configured doctor and reject i
     assert.equal(available.result.doctor.id, doctor.id);
     assert.equal(available.result.service.id, 'checkup');
     const [first, second] = available.result.slots;
-    const selection = { doctor_id: doctor.id, service_id: 'checkup', start: first.start };
+    const selection = { doctor_id: doctor.id, service_id: 'checkup', start: first.start, patient_name: null, patient_email: null, patient_phone: null, summary: null };
     assert.equal((await call('prepare_booking', { ...selection, doctor_id: 'imaginary-dentist' })).error, 'invalid_doctor');
     assert.equal((await listBookings(u)).length, 0);
     const prepared = (await call('prepare_booking', selection)).result;

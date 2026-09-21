@@ -1,6 +1,6 @@
 # Google Calendar integration proposal
 
-Status: service-account authentication selected. Google Cloud project and service account created; Google Calendar API enabled and verified in the console on 2026-09-21. Service-account read access and writer permissions on all three doctor calendars were verified on 2026-09-21; doctor mappings are saved in server-side local environment configuration. The read-only multi-calendar overview is implemented; Google event writes from booking tools remain pending. No Google Calendar event writes have been made.
+Status (2026-09-21): calendar writes implemented with PostgreSQL operation intents, deterministic Google event IDs, etag protection, patient/contact/summary payloads and retry reconciliation. Real create/read/move/read/delete checks passed for all three doctor calendars. The sections below retain the original integration design; current implementation details are in `../superpowers/specs/2026-09-21-google-calendar-writes-design.md`.
 
 ## Current Google Cloud setup
 
@@ -14,7 +14,7 @@ Status: service-account authentication selected. Google Cloud project and servic
 
 ## Verified doctor-to-calendar mapping
 
-The user supplied the calendars in this order. `.env.local` stores the credential path and the following server-only environment variables; none use a `NEXT_PUBLIC_` prefix. `.env.example` documents the keys without deployment-specific IDs. The overview uses these mappings for live availability reads; the booking mutation engine still uses local SQLite.
+The user supplied the calendars in this order. `.env.local` stores the credential path and the following server-only environment variables; none use a `NEXT_PUBLIC_` prefix. `.env.example` documents the keys without deployment-specific IDs. The overview uses these mappings for live availability reads; the booking mutation engine uses PostgreSQL and writes confirmed events to Google.
 
 | Doctor / service | Calendar | Environment variable | Calendar ID |
 | --- | --- | --- | --- |

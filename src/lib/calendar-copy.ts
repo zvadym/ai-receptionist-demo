@@ -13,7 +13,7 @@ const en = {
   unknown: 'Availability could not be checked for this doctor.',
   hours: 'Mon–Fri 09:00–17:00 · Break 12:00–13:00',
   hint: 'Free time is unoccupied working time. An appointment must fit its full duration and start at least 30 minutes from now.',
-  sourceNote: 'Google busy times and local demo bookings are shown together. Booking changes are still stored locally.',
+  sourceNote: 'Google busy times and demo bookings are shown together. Bookings are saved in this demo; Google calendars are read-only.',
   scroll: 'Scroll horizontally to see the full week.',
 };
 type CalendarCopy = { [K in keyof typeof en]: string };
@@ -32,7 +32,7 @@ export const calendarCopy: Record<Language, CalendarCopy> = {
     unknown: 'Не вдалося перевірити зайнятість цього лікаря.',
     hours: 'Пн–Пт 09:00–17:00 · Перерва 12:00–13:00',
     hint: '«Вільно» — незайнятий робочий час. Прийом має вміщатися повністю й починатися щонайменше через 30 хвилин.',
-    sourceNote: 'Показуємо зайнятість Google та локальні демозаписи разом. Зміни бронювань поки зберігаються локально.',
+    sourceNote: 'Показуємо зайнятість Google та демозаписи разом. Бронювання зберігаються в демо; календарі Google доступні лише для перегляду.',
     scroll: 'Прокрутіть горизонтально, щоб побачити весь тиждень.',
   },
   de: {
@@ -48,7 +48,7 @@ export const calendarCopy: Record<Language, CalendarCopy> = {
     unknown: 'Die Verfügbarkeit konnte nicht geprüft werden.',
     hours: 'Mo–Fr 09:00–17:00 · Pause 12:00–13:00',
     hint: 'Frei bedeutet unbelegte Arbeitszeit. Der gesamte Termin muss hineinpassen und mindestens 30 Minuten in der Zukunft beginnen.',
-    sourceNote: 'Google-Belegungen und lokale Demo-Termine werden gemeinsam angezeigt. Terminänderungen werden noch lokal gespeichert.',
+    sourceNote: 'Google-Belegungen und Demo-Termine werden gemeinsam angezeigt. Buchungen werden in dieser Demo gespeichert; Google-Kalender sind schreibgeschützt.',
     scroll: 'Horizontal scrollen, um die gesamte Woche zu sehen.',
   },
 };

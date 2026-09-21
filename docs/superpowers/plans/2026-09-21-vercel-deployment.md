@@ -14,8 +14,18 @@
 - Real Gleam voice smoke passed create, reschedule and cancel with separate spoken confirmations (162 seconds).
 - Inline service-account credentials successfully read all three Google calendars.
 - Local SQLite data imported into PGlite; original SQLite file retained.
-- Neon provisioning is blocked by the account holder accepting marketplace terms. Production database, deployment and public verification remain pending; do not describe the site as deployed.
+- Initial provisioning waited for the account holder to accept marketplace terms; this was resolved in the update below.
 
 ## Provisioning update
 
 User accepted Neon terms and supplied `demo.example.com` as the production domain. Set APP_ORIGIN to that HTTPS origin. Cleanup cron runs every 15 minutes so an idle Neon database can scale to zero; normal voice sessions still close after five minutes, but recovery after a terminated server process may wait up to 15 minutes. Free-plan usage limits still apply.
+
+## Production verification
+
+- Neon Free resource `linden-demo` provisioned in Frankfurt and connected to Vercel.
+- Production deployed from GitHub main; custom HTTPS domain verified and publicly accessible.
+- Real Neon concurrency checks passed for same-slot bookings, one-use access redemption and voice reservations.
+- Browser access redemption, authenticated calendar display and a complete manual booking/cancellation passed on the custom domain.
+- Production local mailbox is unavailable (404); unauthenticated cleanup calls are rejected (401).
+- Email delivery is configured through Resend. End-to-end delivery awaits the user's test recipient; no test email has been sent.
+- Real production WebRTC smoke passed with synthetic Opus speech, Gleam voice, backend tool execution and provider-confirmed closure (34 seconds, one persisted tool result). Earlier silent-peer attempts did not exercise a patient utterance; no application workaround was needed.

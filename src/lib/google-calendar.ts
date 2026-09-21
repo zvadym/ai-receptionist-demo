@@ -35,8 +35,9 @@ export async function googleAvailability(timeMin: string, timeMax: string): Prom
   const mappings = doctors.map(d => ({ doctorId: d.id, calendarId: process.env[calendarVariables[d.id]] }));
   const configured = mappings.filter(m => m.calendarId);
   const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (!keyFile || !configured.length) throw new AppError('calendar_not_configured', 503);
-  auth ??= new GoogleAuth({ keyFile, scopes: ['https://www.googleapis.com/auth/calendar.readonly'] });
+  const credentials = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if ((!keyFile && !credentials) || !configured.length) throw new AppError('calendar_not_configured', 503);
+  auth ??= new GoogleAuth({ ...(credentials ? { credentials: JSON.parse(credentials) } : { keyFile }), scopes: ['https://www.googleapis.com/auth/calendar.readonly'] });
   try {
     const client = await auth.getClient();
     const response = await client.request({

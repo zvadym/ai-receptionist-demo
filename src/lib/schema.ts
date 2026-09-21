@@ -1,0 +1,20 @@
+export const schema = `
+    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, hash TEXT NOT NULL, expires BIGINT NOT NULL, attempts BIGINT NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires BIGINT NOT NULL);
+    CREATE TABLE IF NOT EXISTS rate_limits (bucket TEXT PRIMARY KEY, count BIGINT NOT NULL, expires BIGINT NOT NULL);
+    CREATE TABLE IF NOT EXISTS mail (id TEXT PRIMARY KEY, recipient TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, created BIGINT NOT NULL);
+    CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), doctor_id TEXT NOT NULL, service_id TEXT NOT NULL, start TEXT NOT NULL, "end" TEXT NOT NULL, status TEXT NOT NULL, created BIGINT NOT NULL);
+    CREATE INDEX IF NOT EXISTS bookings_time ON bookings(status, start, "end");
+    CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, expires BIGINT NOT NULL, result TEXT);
+    CREATE TABLE IF NOT EXISTS voice_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), provider_id TEXT, state TEXT NOT NULL, created BIGINT NOT NULL, usage TEXT, expires_at BIGINT);
+    CREATE TABLE IF NOT EXISTS tool_results (session_id TEXT NOT NULL, call_id TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(session_id, call_id));
+    CREATE TABLE IF NOT EXISTS contact_requests (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, message TEXT NOT NULL, language TEXT NOT NULL, created BIGINT NOT NULL, send_status TEXT NOT NULL, provider_id TEXT);
+    CREATE TABLE IF NOT EXISTS access_requests (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, clinic TEXT NOT NULL, language TEXT NOT NULL, created BIGINT NOT NULL, send_status TEXT NOT NULL, provider_id TEXT, redeemed BIGINT);
+    CREATE TABLE IF NOT EXISTS access_links (hash TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES access_requests(id), email TEXT NOT NULL, expires BIGINT NOT NULL);
+    CREATE INDEX IF NOT EXISTS access_links_email ON access_links(email);
+  
+CREATE INDEX IF NOT EXISTS bookings_doctor_time ON bookings(doctor_id,status,start,"end");
+ALTER TABLE voice_sessions ADD COLUMN IF NOT EXISTS expires_at BIGINT;
+CREATE INDEX IF NOT EXISTS voice_sessions_state_created ON voice_sessions(state,created);
+`;

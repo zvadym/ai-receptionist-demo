@@ -9,8 +9,8 @@ export class LiveToolRouter {
   private responses = new Map<string, Pending>();
   private delegations = new Map<string, string>();
   private preparedDelegations = new Set<string>();
-  constructor(private send: (event: WireEvent) => void, private execute: (call: Call) => string) {}
-  receive(envelope: WireEvent) {
+  constructor(private send: (event: WireEvent) => void, private execute: (call: Call) => string | Promise<string>) {}
+  async receive(envelope: WireEvent) {
     if (envelope.type !== 'response.event') return;
     const event = envelope.event as Record<string, any> | undefined;
     if (!event) return;
@@ -38,7 +38,7 @@ export class LiveToolRouter {
       for (const call of pending.calls.values()) {
         const output = this.preparedDelegations.has(delegation) && call.name === 'confirm_booking_change'
           ? JSON.stringify({ ok: false, error: 'Separate user confirmation required after proposal.' })
-          : this.execute(call);
+          : await this.execute(call);
         this.send({ type: 'response.item.create', item: { type: 'function_call_output', call_id: call.call_id, output } });
       }
       this.send({ type: 'response.create' });

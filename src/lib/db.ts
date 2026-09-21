@@ -1,55 +1,76 @@
-import Database from 'better-sqlite3';
-import { mkdirSync } from 'node:fs';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { resolve } from 'node:path';
-import { doctorForService } from './clinic';
+import { Pool, types } from 'pg';
+import { attachDatabasePool } from '@vercel/functions';
+import type { PGlite } from '@electric-sql/pglite';
+import { schema } from './schema';
 
-const globalDb = globalThis as unknown as { bookingDb?: Database.Database; bookingSchema?: number };
-export function db() {
-  if (globalDb.bookingDb && globalDb.bookingSchema === 3) return globalDb.bookingDb;
-  if (process.env.VERCEL) throw new Error('Local SQLite build: migrate to Postgres before deploying.');
-  const folder = resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR || '.data');
-  mkdirSync(folder, { recursive: true, mode: 0o700 });
-  const database = globalDb.bookingDb || new Database(resolve(folder, 'booking.sqlite'));
-  database.pragma('journal_mode = WAL');
-  database.pragma('foreign_keys = ON');
-  database.pragma('busy_timeout = 5000');
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS codes (email TEXT PRIMARY KEY, hash TEXT NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS rate_limits (bucket TEXT PRIMARY KEY, count INTEGER NOT NULL, expires INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS mail (id TEXT PRIMARY KEY, recipient TEXT NOT NULL, subject TEXT NOT NULL, body TEXT NOT NULL, created INTEGER NOT NULL);
-    CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), service_id TEXT NOT NULL, start TEXT NOT NULL, end TEXT NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL);
-    CREATE INDEX IF NOT EXISTS bookings_time ON bookings(status, start, end);
-    CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, expires INTEGER NOT NULL, result TEXT);
-    CREATE TABLE IF NOT EXISTS voice_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), provider_id TEXT, state TEXT NOT NULL, created INTEGER NOT NULL, usage TEXT);
-    CREATE TABLE IF NOT EXISTS tool_results (session_id TEXT NOT NULL, call_id TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(session_id, call_id));
-    CREATE TABLE IF NOT EXISTS contact_requests (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, message TEXT NOT NULL, language TEXT NOT NULL, created INTEGER NOT NULL, send_status TEXT NOT NULL, provider_id TEXT);
-    CREATE TABLE IF NOT EXISTS access_requests (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, clinic TEXT NOT NULL, language TEXT NOT NULL, created INTEGER NOT NULL, send_status TEXT NOT NULL, provider_id TEXT, redeemed INTEGER);
-    CREATE TABLE IF NOT EXISTS access_links (hash TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES access_requests(id), email TEXT NOT NULL, expires INTEGER NOT NULL);
-    CREATE INDEX IF NOT EXISTS access_links_email ON access_links(email);
-  `);
-  migrateDoctorCalendars(database);
-  globalDb.bookingDb = database;
-  globalDb.bookingSchema = 3;
-  return database;
+// Epoch milliseconds and counts fit safely in a JS number.
+types.setTypeParser(20, Number);
+type Executor = { query: (sql: string, values?: any[]) => Promise<{ rows: any[] }> };
+type Database = { pool?: Pool; local?: PGlite };
+const state = globalThis as unknown as { lindenDatabase?: Promise<Database> };
+const context = new AsyncLocalStorage<Executor>();
+const transactionLock = 72619421;
+
+async function database(): Promise<Database> {
+  if (!state.lindenDatabase) {
+    state.lindenDatabase = (async () => {
+      if (process.env.DATABASE_URL) {
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5,
+          idleTimeoutMillis: 5_000, connectionTimeoutMillis: 10_000, statement_timeout: 15_000 });
+        pool.on('error', () => console.error('Database connection interrupted'));
+        if (process.env.VERCEL) attachDatabasePool(pool);
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query('SELECT pg_advisory_xact_lock($1)', [transactionLock]);
+          await client.query(schema);
+          await client.query('COMMIT');
+        } catch (error) { await client.query('ROLLBACK'); client.release(); await pool.end(); throw error; }
+        client.release();
+        return { pool };
+      }
+      if (process.env.VERCEL) throw new Error('DATABASE_URL is required on Vercel');
+      const { PGlite } = await import('@electric-sql/pglite');
+      const local = new PGlite(resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR || '.data', 'postgres'), { parsers: { 20: Number } });
+      await local.exec(schema);
+      return { local };
+    })().catch(error => { state.lindenDatabase = undefined; throw error; });
+  }
+  return state.lindenDatabase;
 }
 
-export function migrateDoctorCalendars(database: Database.Database) {
-  database.transaction(() => {
-    const columns = database.pragma('table_info(bookings)') as { name: string }[];
-    if (columns.some(column => column.name === 'doctor_id')) return;
-    database.exec("ALTER TABLE bookings ADD COLUMN doctor_id TEXT NOT NULL DEFAULT ''");
-    const bookings = database.prepare('SELECT id,service_id FROM bookings').all() as { id: string; service_id: string }[];
-    for (const booking of bookings) database.prepare('UPDATE bookings SET doctor_id=? WHERE id=?').run(doctorForService(booking.service_id).id, booking.id);
-    // Old previews referred to the shared calendar and must be reviewed again.
-    database.prepare('UPDATE proposals SET expires=0 WHERE result IS NULL').run();
-    const completed = database.prepare('SELECT id,result FROM proposals WHERE result IS NOT NULL').all() as { id: string; result: string }[];
-    for (const row of completed) {
-      const result = JSON.parse(row.result);
-      result.doctor_id = doctorForService(result.service_id).id;
-      database.prepare('UPDATE proposals SET result=? WHERE id=?').run(JSON.stringify(result), row.id);
-    }
-    database.exec('CREATE INDEX bookings_doctor_time ON bookings(doctor_id,status,start,end)');
-  }).immediate();
+export async function query<T extends Record<string, any> = any>(sql: string, values: any[] = []): Promise<{ rows: T[] }> {
+  const executor = context.getStore();
+  if (executor) return executor.query(sql, values);
+  const db = await database();
+  return db.pool ? db.pool.query<T>(sql, values) : db.local!.query<T>(sql, values);
+}
+
+export async function transaction<T>(work: () => Promise<T>): Promise<T> {
+  // Nested booking operations participate in the caller's atomic tool transaction.
+  if (context.getStore()) return work();
+  const db = await database();
+  if (db.local) return db.local.transaction(tx => context.run(tx, work));
+  const client = await db.pool!.connect();
+  try {
+    await client.query('BEGIN');
+    // Small demo workload: serialize mutation transactions across all instances.
+    // Acquire before any reads so simultaneous confirmations cannot double-book.
+    await client.query('SELECT pg_advisory_xact_lock($1)', [transactionLock]);
+    const result = await context.run(client, work);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) { await client.query('ROLLBACK'); throw error; }
+  finally { client.release(); }
+}
+
+export async function closeDb() {
+  const pending = state.lindenDatabase;
+  state.lindenDatabase = undefined;
+  if (!pending) return;
+  const db = await pending;
+  if (db.pool) await db.pool.end();
+  else await db.local!.close();
 }

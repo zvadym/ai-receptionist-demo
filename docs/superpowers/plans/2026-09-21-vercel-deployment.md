@@ -15,3 +15,7 @@
 - Inline service-account credentials successfully read all three Google calendars.
 - Local SQLite data imported into PGlite; original SQLite file retained.
 - Neon provisioning is blocked by the account holder accepting marketplace terms. Production database, deployment and public verification remain pending; do not describe the site as deployed.
+
+## Provisioning update
+
+User accepted Neon terms and supplied `demo.example.com` as the production domain. Set APP_ORIGIN to that HTTPS origin. Cleanup cron runs every 15 minutes so an idle Neon database can scale to zero; normal voice sessions still close after five minutes, but recovery after a terminated server process may wait up to 15 minutes. Free-plan usage limits still apply.

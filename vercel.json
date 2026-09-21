@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/voice-cleanup",
-      "schedule": "* * * * *"
+      "schedule": "*/15 * * * *"
     }
   ]
 }

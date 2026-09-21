@@ -30,7 +30,7 @@ Set `OPENAI_API_KEY` in `.env.local`, restart the development server, allow the 
 
 Real API checks on 2026-09-20 used `gpt-live-1` with `gpt-5.6-terra`: Ukrainian/German synthesized questions produced correct service answers and a real knowledge tool call; English speech created, rescheduled and cancelled an isolated test booking with separate confirmations. A Node WebRTC peer exercised the application's session creation and server sideband, reached `session.started`, then closed with final usage persisted. This does not verify physical microphone capture or speaker playback in a browser: the in-app browser's microphone request remained pending. Audio interruptions, the full five-minute timeout and provider billing reconciliation remain unverified. No mock speech is presented as a working OpenAI session.
 
-Vercel Cron checks stale sessions every minute and attempts sideband closure, retaining unconfirmed failures for retry. Provider-issued `expires_at` can release a session lock after expiry without claiming that final usage was received. `waitUntil` keeps normal disconnect cleanup alive within the function duration; abrupt termination still relies on the independent cron. Provider usage remains the billing authority.
+Vercel Cron checks stale sessions every 15 minutes and attempts sideband closure, retaining unconfirmed failures for retry. Provider-issued `expires_at` can release a session lock after expiry without claiming that final usage was received. `waitUntil` keeps normal disconnect cleanup alive within the function duration; abrupt termination still relies on the independent cron. Provider usage remains the billing authority.
 
 ## Send real email instead of using the test inbox
 
@@ -84,7 +84,7 @@ This preserves the source file and rolls back an unsuccessful import. Omit `DATA
 
 The linked Vercel project is `ai-receptionist-demo` under `example-vercel-team`. Configure production environment variables from `.env.example`: `DATABASE_URL`, `OPENAI_API_KEY`, `LIVE_BACKEND_MODEL=gpt-5.6-terra`, `MAIL_MODE=resend`, `RESEND_API_KEY`, `RESEND_FROM`, the final HTTPS `APP_ORIGIN`, a random `CRON_SECRET`, `GOOGLE_SERVICE_ACCOUNT_JSON`, the three calendar IDs and `LINKEDIN_PROFILE_URL`. Credentials are server-only; do not upload `.env.local`, `.data` or the service-account file. Use a separate database branch and matching origin for any public Preview deployment.
 
-`vercel.json` enables Fluid compute in `fra1` and a minute-level authenticated cleanup cron. The voice route has a 360-second maximum, with normal closure at 300 seconds and an 8-second finalization grace. Browser media connects directly to OpenAI; Vercel owns the tool sideband. Five-minute sessions and the daily start caps remain active. Deploy with the authenticated Vercel CLI (`npx vercel --prod`) after tests and build pass.
+`vercel.json` enables Fluid compute in `fra1` and an authenticated cleanup cron every 15 minutes. The voice route has a 360-second maximum, with normal closure at 300 seconds and an 8-second finalization grace. Browser media connects directly to OpenAI; Vercel owns the tool sideband. Five-minute sessions and the daily start caps remain active. Deploy with the authenticated Vercel CLI (`npx vercel --prod`) after tests and build pass.
 
 The read-only overview uses the configured Google calendars. Booking create/reschedule/cancel persist in the application database and do not yet write Google events.
 

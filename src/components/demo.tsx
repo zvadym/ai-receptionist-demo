@@ -6,6 +6,7 @@ import { copy, errorText } from '@/lib/copy';
 import type { Booking, Proposal, Slot } from '@/lib/booking';
 import type { User } from '@/lib/auth';
 import { useVoice } from './use-voice';
+import { CalendarOverview } from './calendar-overview';
 
 type State = { user: User | null; bookings: Booking[]; proposal: Proposal | null; dates: string[]; voiceConfigured: boolean; localMail: boolean };
 const locales = { uk: 'uk-UA', de: 'de-AT', en: 'en-GB' };
@@ -102,6 +103,7 @@ export function Demo() {
           <section className="appointments"><div className="section-top"><h2>{t.myBookings}</h2><span className="count">{state.bookings.filter(b => b.status === 'confirmed').length}</span></div>{notice && <p className="success" role="status"><Check size={16}/>{t.success}</p>}{state.bookings.length ? state.bookings.map(b => <article className={`appointment ${b.status === 'cancelled' ? 'is-cancelled' : ''}`} key={b.id}><div className="booking-meta"><span className="booking-status">{b.status === 'confirmed' ? <Check size={12}/> : <X size={12}/>} {b.status === 'confirmed' ? t.confirmed : t.cancelled}</span><span>#{b.id.slice(0,6).toUpperCase()}</span></div><h3>{services.find(s => s.id === b.service_id)?.name[language]}</h3><p>{doctors.find(d => d.id === b.doctor_id)?.name}</p><p>{formatDate(b.start)} · {formatTime(b.start)}</p>{b.status === 'confirmed' && Date.parse(b.start)>Date.now() && <div className="booking-actions"><button disabled={busy} onClick={() => { setMoving(b); setServiceId(b.service_id); document.getElementById('calendar')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>{t.reschedule}</button><button disabled={busy} onClick={() => void change({ action: 'cancel', booking_id: b.id })}>{t.cancel}</button></div>}</article>) : <div className="empty-bookings"><CalendarDays size={33} strokeWidth={1}/><h3>{t.noBookings}</h3><p>{t.noBookingsSub}</p></div>}</section>
           <div className="care-note"><Sparkles size={20} strokeWidth={1.3}/><p>{t.footer}</p><span>LINDEN DENTAL</span></div>
         </aside></div>
+        <CalendarOverview language={language} bookingRevision={state.bookings.map(b => `${b.id}:${b.start}:${b.status}`).join('|')}/>
       </div>}
     </main>
     <footer><span>© 2026 Linden Dental</span><span><ShieldCheck size={14}/>{t.demoNote}</span>{state?.localMail && <a href={`/dev/mail?lang=${language}`} target="_blank" rel="noreferrer">{t.localMail}<ArrowRight size={13}/></a>}</footer>

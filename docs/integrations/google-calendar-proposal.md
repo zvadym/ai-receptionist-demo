@@ -1,6 +1,28 @@
 # Google Calendar integration proposal
 
-Status: integration design prepared; authentication choice and calendar access pending. No Google Calendar connection or event writes have been made.
+Status: service-account authentication selected. Google Cloud project and service account created; Google Calendar API enabled and verified in the console on 2026-09-21. Service-account read access and writer permissions on all three doctor calendars were verified on 2026-09-21; doctor mappings are saved in server-side local environment configuration. The read-only multi-calendar overview is implemented; Google event writes from booking tools remain pending. No Google Calendar event writes have been made.
+
+## Current Google Cloud setup
+
+- Project name: `booking-assistant`; project ID: `example-cloud-project`.
+- Service account: `booking-assistant@example-cloud-project.iam.gserviceaccount.com`.
+- Google Calendar API (`calendar-json.googleapis.com`): enabled.
+- The user created and downloaded a JSON key. Place it at `.data/google-calendar-service-account.json` (rename the downloaded file). This directory is ignored by Git; do not paste or commit the credential.
+- Credential present at the local path. All three calendars returned HTTP 200 and `accessRole: writer` through that service account. Read-only viewing now uses Google FreeBusy through the application. Event writes and booking synchronization have not been enabled.
+- No project-wide IAM roles, domain-wide delegation, or OAuth consent-screen configuration is needed for the proposed explicitly shared-calendar flow.
+
+
+## Verified doctor-to-calendar mapping
+
+The user supplied the calendars in this order. `.env.local` stores the credential path and the following server-only environment variables; none use a `NEXT_PUBLIC_` prefix. `.env.example` documents the keys without deployment-specific IDs. The overview uses these mappings for live availability reads; the booking mutation engine still uses local SQLite.
+
+| Doctor / service | Calendar | Environment variable | Calendar ID |
+| --- | --- | --- | --- |
+| Anna Weber / checkup | Booking assistant 1 | `GOOGLE_CALENDAR_ANNA_WEBER` | `example-calendar-1` |
+| Max Hoffmann / cleaning | Booking assistant 2 | `GOOGLE_CALENDAR_MAX_HOFFMANN` | `example-calendar-2` |
+| Lara Fischer / filling | Booking assistant 3 | `GOOGLE_CALENDAR_LARA_FISCHER` | `example-calendar-3` |
+
+All three calendars use `Europe/Vienna` and grant the service account `writer` access. The booking provider must use these server-side mappings rather than accepting calendar IDs from the browser or model.
 
 ## Scope
 
@@ -69,3 +91,7 @@ Official references consulted:
 - https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query
 - https://developers.google.com/workspace/calendar/api/guides/version-resources
 - https://developers.google.com/identity/protocols/oauth2/service-account
+
+## Implemented read-only overview — 2026-09-21
+
+The separately approved calendar block reads mapped Google busy intervals and displays them with local confirmed reservations, working hours and lunch. It supports doctor multiselect, day/workweek navigation and refresh, with no Google mutations. Google FreeBusy is sufficient for this display because no event is being excluded or modified. Event-list pagination, etags, contact/summary fields and durable mutation reconciliation in the proposal above remain requirements for the future booking-write integration. No patient data is exposed by the overview.

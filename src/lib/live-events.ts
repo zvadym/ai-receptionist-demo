@@ -1,11 +1,7 @@
 // The Live API forwards Responses events in response.event envelopes.
 // Collect function items, not response.completed.output (which can be empty).
-import { clinic, languages, assistantNames, type Language } from './clinic';
 export type WireEvent = Record<string, unknown> & { type: string };
-export function greetingCommand(language: Language): WireEvent {
-  return { type: 'session.instructions.append', event_id: 'initial-greeting', delegation_id: null,
-    content: `Begin speaking immediately in ${languages[language]}. Briefly introduce yourself as ${assistantNames[language]}, the AI demo administrator of the fictional ${clinic.name} clinic. Ask one welcoming question: what brings them in today? Then listen. Do not wait for the visitor to speak first.` };
-}
+
 type Call = { call_id: string; name: string; arguments: string };
 type Pending = { calls: Map<string, Call>; completed: boolean };
 

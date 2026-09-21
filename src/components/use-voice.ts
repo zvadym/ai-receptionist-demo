@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Language } from '@/lib/clinic';
-import { greetingCommand } from '@/lib/live-events';
+import { greetingCommand } from '@/lib/agent-prompts';
 
 type Transcript = { speaker: 'user' | 'assistant'; text: string };
 type Resources = { peer?: RTCPeerConnection; channel?: RTCDataChannel; mic?: MediaStream; audio?: HTMLAudioElement; abort?: AbortController; timer?: ReturnType<typeof setInterval>; closingTimer?: ReturnType<typeof setTimeout>; connectedTimer?: ReturnType<typeof setTimeout> };

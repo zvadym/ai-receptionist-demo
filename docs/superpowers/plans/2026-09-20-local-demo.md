@@ -55,3 +55,11 @@ Add three fictional doctors, one for each existing service, with independent ava
 Verification: 16 tests passed, including legacy migration, doctor/service mismatch rejection, same-doctor collision protection and simultaneous appointments with different doctors. Production build and TypeScript passed. Real English GPT-Live proactive cleaning scenario retrieved the roster and selected Dr. Max Hoffmann, quoted 60 minutes / EUR120 and offered checked times; refusal produced no booking or proposal. Session finalized at 53 seconds. Artifacts: `.data/live-smoke-1789982856513`. Other languages were not rerun for this calendar revision.
 
 Browser verification: all three service cards show their assigned doctors; selecting cleaning updates the calendar to Max Hoffmann, and the booking preview shows him with the correct 60-minute interval. Dismissed the preview without creating a booking.
+
+## Conversation preference correction — 2026-09-21
+
+Implement the user's explicit conversation order in voice instructions, backend instructions and slot-tool description. Update the real proactive speech scenario to verify no early slot lookup, no-preference earliest lookup, a specific alternate date/time request, and refusal without a proposal. Run the Ukrainian real-model scenario and TypeScript check. Keep calendar and booking authorization unchanged.
+
+### Preference-flow verification
+
+TypeScript passed. Real Ukrainian GPT-Live proactive scenario passed with artifacts `.data/live-smoke-1789991087916` and finalized usage 121 seconds. The agent asked for doctor/time preferences; no slot tool ran before the explicit no-preference answer. It then retrieved clinic/roster/slots, offered two earliest times and invited another approximate day/time. On a request for September 22 after 15:00 it rechecked that date and offered 15:30/16:00. Refusal created neither a booking nor a proposal. This revision was exercised with synthesized Ukrainian speech; German/English were not rerun. Prompt behavior remains generative rather than a deterministic dialogue state machine.

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { services, doctors, doctorForService, timezone } from './clinic';
 import { db } from './db';
 import { AppError } from './errors';
+import { schedule, workingPeriods } from './schedule';
 
 export type Booking = { id: string; user_id: string; doctor_id: string; service_id: string; start: string; end: string; status: 'confirmed' | 'cancelled'; created: number };
 export type Slot = { start: string; end: string };
@@ -18,7 +19,7 @@ export type Proposal = { id: string; change: Change; booking?: Booking; doctor_i
 export function clinicDates() {
   const today = DateTime.now().setZone(timezone).startOf('day');
   return Array.from({ length: 21 }, (_, i) => today.plus({ days: i }))
-    .filter(d => d.weekday <= 5).map(d => d.toISODate()!);
+    .filter(d => schedule.weekdays.includes(d.weekday)).map(d => d.toISODate()!);
 }
 export function getService(id: string) {
   const service = services.find(s => s.id === id);
@@ -52,13 +53,14 @@ export function listSlots(serviceId: string, date: string, excludeId = '', docto
   const busy = db().prepare("SELECT start,end FROM bookings WHERE status='confirmed' AND doctor_id=? AND id!=? AND start<? AND end>?")
     .all(doctorId, excludeId, day.plus({ days: 1 }).toUTC().toISO(), day.toUTC().toISO()) as Slot[];
   const result: Slot[] = [];
-  for (let minute = 9 * 60; minute + service.minutes <= 17 * 60; minute += 30) {
-    if (minute < 13 * 60 && minute + service.minutes > 12 * 60) continue;
-    const start = day.plus({ minutes: minute });
-    const end = start.plus({ minutes: service.minutes });
-    if (start.toMillis() < DateTime.now().toMillis() + 30 * 60_000) continue;
-    const slot = { start: start.toUTC().toISO()!, end: end.toUTC().toISO()! };
-    if (!busy.some(b => b.start < slot.end && b.end > slot.start)) result.push(slot);
+  for (const period of workingPeriods(date)) {
+    for (let minute = period.start; minute + service.minutes <= period.end; minute += schedule.slotStep) {
+      const start = day.plus({ minutes: minute });
+      const end = start.plus({ minutes: service.minutes });
+      if (start.toMillis() < DateTime.now().toMillis() + schedule.leadMinutes * 60_000) continue;
+      const slot = { start: start.toUTC().toISO()!, end: end.toUTC().toISO()! };
+      if (!busy.some(b => b.start < slot.end && b.end > slot.start)) result.push(slot);
+    }
   }
   return result;
 }

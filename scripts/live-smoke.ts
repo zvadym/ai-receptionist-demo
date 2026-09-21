@@ -8,7 +8,8 @@ import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { voiceSessionConfig } from '../src/lib/live';
-import { greetingCommand, LiveToolRouter, type WireEvent } from '../src/lib/live-events';
+import { LiveToolRouter, type WireEvent } from '../src/lib/live-events';
+import { greetingCommand } from '../src/lib/agent-prompts';
 import { executeTool } from '../src/lib/tools';
 import { db } from '../src/lib/db';
 import { clinicDates, listBookings, pendingProposal } from '../src/lib/booking';
@@ -42,9 +43,9 @@ async function main() {
     const bookingDate = clinicDates()[1];
     const noBooking = () => { assert.equal(listBookings(user.id).length, 0); assert(!pendingProposal(user.id), 'Do not prepare a booking before the visitor chooses a slot'); };
     const proactiveSpeech = {
-      uk: ['Я хочу записатися на прийом.', 'У мене ниє зуб. Хочу, щоб лікар подивився.', 'Дякую. Я поки подумаю, нічого не бронюйте.'],
-      de: ['Ich möchte einen Termin vereinbaren.', 'Mein Zahn tut weh. Ich möchte ihn untersuchen lassen.', 'Danke, ich möchte noch überlegen. Bitte nichts buchen.'],
-      en: ['I would like to book an appointment.', 'My tooth aches. I would like a dentist to take a look.', 'Thank you. I will think about it. Please do not book anything.'],
+      uk: ['Я хочу записатися на прийом.', 'У мене ниє зуб. Хочу, щоб лікар подивився.', 'Побажань немає, запропонуйте найближчий час.', `Потрібні інші варіанти. Мені зручно ${bookingDate} після п'ятнадцятої години.`, 'Дякую. Я поки подумаю, нічого не бронюйте.'],
+      de: ['Ich möchte einen Termin vereinbaren.', 'Mein Zahn tut weh. Ich möchte ihn untersuchen lassen.', 'Ich habe keine Präferenzen. Bitte den frühesten Termin.', `Ich brauche andere Optionen am ${bookingDate} nach fünfzehn Uhr.`, 'Danke, ich möchte noch überlegen. Bitte nichts buchen.'],
+      en: ['I would like to book an appointment.', 'My tooth aches. I would like a dentist to take a look.', 'I have no preferences. Please offer the earliest appointment.', `I need other options on ${bookingDate} after three in the afternoon.`, 'Thank you. I will think about it. Please do not book anything.'],
     }[language];
     if (requestedService) proactiveSpeech[1] = {
       checkup: { uk: 'Хочу огляд зубів.', de: 'Ich möchte eine zahnärztliche Kontrolle.', en: 'I would like a dental checkup.' },
@@ -53,8 +54,10 @@ async function main() {
     }[requestedService as 'checkup'|'cleaning'|'filling'][language];
     const turns: { text: string; tools: string[]; state?: () => void }[] = proactive ? [
       { text: proactiveSpeech[0], tools: [], state: noBooking },
-      { text: proactiveSpeech[1], tools: ['find_available_slots'], state: noBooking },
-      { text: proactiveSpeech[2], tools: [], state: noBooking },
+      { text: proactiveSpeech[1], tools: [], state: noBooking },
+      { text: proactiveSpeech[2], tools: ['find_available_slots'], state: noBooking },
+      { text: proactiveSpeech[3], tools: ['find_available_slots'], state: noBooking },
+      { text: proactiveSpeech[4], tools: [], state: noBooking },
     ] : language === 'en' ? [
       { text: `Hello. Please check whether a dental checkup is available on ${bookingDate} at nine in the morning, and tell me the price.`, tools: ['get_doctors', 'find_available_slots'] },
       { text: 'Please prepare that checkup appointment at nine in the morning for me.', tools: ['prepare_booking'], state: () => assert.equal(listBookings(user.id).length, 0) },
@@ -147,6 +150,8 @@ async function main() {
         clip = clips[i]; offset = 0;
         await until(() => offset >= clip.length);
         await until(() => turn.tools.every(name => calls.slice(count).some(c => c.name === name && c.result.ok)) && assistant.length > before && Date.now() - lastTool > 8000 && Date.now() - lastOutput > 3000);
+        if (proactive && i < 2) assert(!calls.slice(count).some(c => c.name === 'find_available_slots'), 'Ask for preferences and wait before searching for appointments');
+        if (proactive && i === 3) assert(calls.slice(count).some(c => c.name === 'find_available_slots' && JSON.parse(c.args).date === bookingDate && c.result.ok), 'Check the requested alternative date');
         turn.state?.();
         if (turn.tools.some(t => t.startsWith('prepare_'))) assert(pendingProposal(user.id), 'Proposal must remain unconfirmed until next user turn');
         console.log(language, 'ASSISTANT', assistant.slice(before));

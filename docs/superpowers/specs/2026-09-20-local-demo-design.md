@@ -24,3 +24,7 @@ Clinic services/prices/dates are retrieved from get_clinic_info, doctor roster/s
 ### Three doctor calendars — approved 2026-09-21
 
 Each service now has one fictional doctor: Anna Weber for checkups, Max Hoffmann for cleaning, Lara Fischer for fillings. Availability and collision checks are doctor-specific; proposals and bookings persist doctor_id. Rescheduling retains the appointment's doctor. Existing demo bookings are assigned by service during an atomic migration; old pending previews expire to require a fresh review. The UI shows the doctor on services, availability, confirmations and booked appointments. The agent still retrieves the roster from tools rather than its prompt.
+
+## Approved conversation correction — 2026-09-21
+
+The user supplied an actual tooth-pain conversation and requested removal of diagnostic filler, a doctor/time preference question before selection, and an invitation to request alternative times. Tooth pain is sufficient for examination routing. Ask one combined preference question and await the answer; already supplied concrete preferences or an earliest-time request avoid repetition. No preference means earliest suitable options. Offers include at most two verified times and invite an approximate day/time for alternatives. Preserve factual tool use, emergency routing, and fresh explicit confirmation before changes. This replaces the earlier immediate-search-without-preferences flow.

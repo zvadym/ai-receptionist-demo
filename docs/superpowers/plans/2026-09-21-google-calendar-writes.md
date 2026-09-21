@@ -12,3 +12,7 @@
 - TypeScript and production build passed.
 - Live Google API lifecycle passed in all three calendars; synthetic events deleted.
 - Production database contains two future internal bookings awaiting export (Anna and Max).
+
+## Production verification
+
+Deployed on `https://demo.example.com`. Both existing future bookings (Anna and Max) were exported and read back from Google with matching times and patient/contact fields. Authenticated production HTTP create, idempotent confirmation, move and cancellation passed against Google; the synthetic event was removed. The production WebRTC voice/tool smoke also passed with the updated strict tool schemas and confirmed session closure.

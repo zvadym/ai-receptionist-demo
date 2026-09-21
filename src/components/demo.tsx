@@ -69,7 +69,7 @@ export function Demo({ initialLanguage = 'en' }: { initialLanguage?: Language })
   async function action(work: () => Promise<void>) {
     if (busy) return;
     setBusy(true); setError(''); setNotice(false);
-    try { await work(); } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+    try { await work(); } catch (e) { setError((e as Error).message); await refresh(); } finally { setBusy(false); }
   }
   async function change(input: unknown) {
     await action(async () => { const result = await api('/api/bookings', input); setManualProposalId(result.proposal?.id ?? null); await refresh(); });

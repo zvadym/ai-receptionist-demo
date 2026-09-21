@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
+import type { Voice } from '@/lib/voices';
 import type { Language } from '@/lib/clinic';
 import { greetingCommand } from '@/lib/agent-prompts';
 
@@ -40,7 +41,7 @@ export function useVoice(onChange: () => void) {
     resources.current.mic?.getTracks().forEach(t => { t.enabled = !next; });
     setMuted(next);
   }
-  async function start(language: Language) {
+  async function start(language: Language, voice: Voice) {
     if (resources.current.abort) return;
     setStatus('connecting'); setError(''); setTranscript([]); setRemaining(300); setMuted(false);
     const r: Resources = { abort: new AbortController() };
@@ -83,7 +84,7 @@ export function useVoice(onChange: () => void) {
         const listener = () => { if (peer.iceGatheringState === 'complete') { clearTimeout(timeout); peer.removeEventListener('icegatheringstatechange', listener); resolve(); } };
         peer.addEventListener('icegatheringstatechange', listener);
       });
-      const response = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language, sdp: peer.localDescription!.sdp }), signal: r.abort!.signal });
+      const response = await fetch('/api/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language, voice, sdp: peer.localDescription!.sdp }), signal: r.abort!.signal });
       if (!response.ok) throw new Error((await response.json()).error || 'voice_failed');
       const reader = response.body!.getReader();
       const decoder = new TextDecoder(); let pending = '';

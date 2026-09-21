@@ -7,6 +7,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import { voiceIds, defaultVoice, type Voice } from '../src/lib/voices';
 import { voiceSessionConfig } from '../src/lib/live';
 import { LiveToolRouter, type WireEvent } from '../src/lib/live-events';
 import { greetingCommand } from '../src/lib/agent-prompts';
@@ -22,9 +23,11 @@ async function main() {
   mkdirSync(root, { recursive: true, mode: 0o700 });
   process.env.APP_DATA_DIR = root;
   const proactive = process.argv.includes('--proactive');
+  const outputVoice = process.argv.find(arg => arg.startsWith('--voice='))?.split('=')[1] || defaultVoice;
+  assert(voiceIds.includes(outputVoice as Voice), 'Choose a supported --voice');
   const requestedService = process.argv.find(arg => arg.startsWith('--service='))?.split('=')[1];
   assert(!requestedService || (proactive && ['checkup', 'cleaning', 'filling'].includes(requestedService)), '--service=checkup|cleaning|filling requires --proactive');
-  const selected = process.argv.slice(2).filter(arg => arg !== '--proactive' && !arg.startsWith('--service='));
+  const selected = process.argv.slice(2).filter(arg => arg !== '--proactive' && !arg.startsWith('--service=') && !arg.startsWith('--voice='));
   const languages = selected.length ? selected : ['uk', 'de', 'en'];
   assert(languages.every(l => ['uk', 'de', 'en'].includes(l)), 'Use uk, de, or en');
   const user = { id: randomUUID(), name: 'Integration Test', email: 'integration@example.test' };
@@ -118,7 +121,8 @@ async function main() {
     }
     try {
       await until(() => ws.readyState === WebSocket.OPEN, 10000);
-      send(ws, { type: 'session.start', session: { ...voiceSessionConfig(user, language), audio: { format: { type: 'audio/pcm', rate: 24000 }, output: { voice: 'marin' } } } });
+      const config = voiceSessionConfig(user, language, outputVoice as Voice);
+      send(ws, { type: 'session.start', session: { ...config, audio: { ...config.audio, format: { type: 'audio/pcm', rate: 24000 } } } });
       await until(() => started, 15000);
       // Primary WebSocket sessions execute tools on their primary connection.
       // Sideband attachment is for the application's WebRTC/SIP transport only.

@@ -1,6 +1,6 @@
-# Linden Dental — local voice booking demo
+# Linden AI — clinic receptionist demo
 
-Ukrainian, German and English web UI. Automatic one-time email codes, a fictional dental clinic and a persistent local calendar. Real GPT-Live 1 transport and server-side tools are implemented; microphone conversations require an OpenAI API key with access to that model.
+English-first marketing landing with German (`?l=de`) and Ukrainian (`?l=uk`, also `ua`) variants, localized CRM/medical-software examples and automatic access links. A fictional dental clinic and persistent local calendar power the authenticated demo. Real GPT-Live 1 transport and server-side tools are implemented; microphone conversations require an OpenAI API key with access to that model.
 
 ## Run locally
 
@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Open http://127.0.0.1:3000. The development server binds to loopback only. With the default local mail mode, use any test email, request a code and open **Test inbox** to read the automatically generated email. Messages are captured locally, not delivered to the internet. Codes expire after ten minutes and work once; the authenticated cookie lasts seven days. The local inbox is disabled in production and rejects non-loopback hostnames.
+Open http://127.0.0.1:3000. The development server binds to loopback only. The public landing stays at `/`; the authenticated application is `/demo`. With the default local mail mode, use a test email, request access and open **Test inbox** to read the generated link. Messages are captured locally, not delivered to the internet. Access links expire after 30 minutes and work once; the authenticated cookie lasts seven days. The local inbox is disabled in production and rejects non-loopback hostnames.
 
 The calendar works without any external service. Select a treatment and date, select a slot, then confirm. You can reschedule or cancel your own appointments. All state is stored in `.data/booking.sqlite` (ignored by git). Slots are weekdays, 09:00–17:00 with a 12:00–13:00 break, in Europe/Vienna, over the next 21 days. Times are stored in UTC; daylight-saving changes are accounted for. This is a fictional clinic, not a medical service.
 
@@ -34,18 +34,22 @@ Abrupt server process termination cannot run the close handler; a failed sideban
 
 ## Send real email instead of using the test inbox
 
-Configure your SMTP provider:
+Configure Resend with a sending API key and a verified sender domain:
 
 ```dotenv
-MAIL_MODE=smtp
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your-user
-SMTP_PASS=your-password
-SMTP_FROM=Linden Demo <demo@your-verified-domain.example>
+MAIL_MODE=resend
+RESEND_API_KEY=re_...
+RESEND_FROM=Linden AI <demo@your-verified-domain.example>
+APP_ORIGIN=http://localhost:3000
 ```
 
-Port 465 uses implicit TLS; other ports use the transport's STARTTLS support. SMTP delivery errors do not return a success message. Real delivery has not been tested without credentials. Production never falls back to a local inbox.
+`APP_ORIGIN` determines the email destination independently of incoming Host headers. Keep it at the local URL for local testing; change it to the HTTPS site origin when deployed. A localhost link is usable only on the machine running the demo. A restricted send-only key is sufficient. Configure the sender's Resend domain with click tracking disabled so authentication links are not rewritten; inbox and URL-fragment preservation should be checked with the actual recipient's mail client.
+
+Every valid, rate-limited form submission is saved in `access_requests` with name, normalized email, optional clinic, language, creation time, send status and Resend message ID. `sent` means accepted by the email provider, not proof of delivery. Failed requests remain recorded and their links are invalidated. Issuing a newer link revokes previous links for that address. The 256-bit access token is stored as a hash, expires in 30 minutes and is atomically consumed by a POST after the visitor explicitly presses **Open my demo**. GET previews do not log in or consume the token. The URL fragment keeps the token out of HTTP request URLs; the page clears it from browser history after loading. Reloading that page requires reopening the original link. Development mail capture intentionally stores the link in the ignored local database.
+
+The browser form uses `/api/access/request`; `/api/access/redeem` creates the existing HttpOnly, SameSite=Strict session. Global/email send limits and the existing voice-session quotas remain active. Production does not fall back to the local inbox. The old OTP helpers remain for existing tests/legacy endpoint compatibility; the landing uses only access links.
+
+The five brand examples vary by locale: international (Salesforce, HubSpot, Zoho, CGM, samedi), German/Austria (CGM, LATIDO, samedi, Salesforce, HubSpot), Ukrainian (HELSI, Doctor ELEKS, Salesforce, HubSpot, Zoho). Logos are sourced from official vendor websites; see `public/integrations/SOURCES.md`. They illustrate potential integrations, not installed connectors, partnerships or a popularity ranking. Phone and WhatsApp are also clearly labeled as custom integrations. The authenticated dashboard and voice behavior are unchanged.
 
 ## Checks
 
@@ -82,3 +86,6 @@ Configure `.env.local` using the keys in `.env.example`: `GOOGLE_APPLICATION_CRE
 `src/lib/schedule.ts` centralizes the existing demo schedule used by booking and calendar rendering: weekdays 09:00–17:00, lunch 12:00–13:00, half-hour starts and a 30-minute booking lead time, Europe/Vienna. The overview focuses on 08:00–18:00; week view displays Monday–Friday and day view can inspect weekends. Free blocks mean unoccupied working time, not a promise that a particular service fits. Calendar navigation is limited to approximately one year in either direction. There is no schedule editor and no event mutation in this block.
 
 Verification on 2026-09-21: 23 unit/domain/protocol tests and production build passed. Real service-account reads returned ready for all three calendars; unauthenticated access returned 401 and invalid ranges returned 400. Browser checks covered multiple/one/no selected calendars, day/week navigation, UA/DE/EN labels and a local appointment appearing as busy. No Google events were created for this feature.
+
+### Telephony examples on the landing
+The integration section lists Twilio, Telnyx, Vonage, Plivo and sipgate.io with official logos and product links. All three languages describe them as custom integration candidates; actual availability depends on country, number and provider capabilities. No provider account, number or telephony connection is provisioned by this UI change.

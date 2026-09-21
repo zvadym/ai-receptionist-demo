@@ -5,7 +5,7 @@ import { doctorForService } from './clinic';
 
 const globalDb = globalThis as unknown as { bookingDb?: Database.Database; bookingSchema?: number };
 export function db() {
-  if (globalDb.bookingDb && globalDb.bookingSchema === 1) return globalDb.bookingDb;
+  if (globalDb.bookingDb && globalDb.bookingSchema === 3) return globalDb.bookingDb;
   if (process.env.VERCEL) throw new Error('Local SQLite build: migrate to Postgres before deploying.');
   const folder = resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR || '.data');
   mkdirSync(folder, { recursive: true, mode: 0o700 });
@@ -24,10 +24,14 @@ export function db() {
     CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), payload TEXT NOT NULL, expires INTEGER NOT NULL, result TEXT);
     CREATE TABLE IF NOT EXISTS voice_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), provider_id TEXT, state TEXT NOT NULL, created INTEGER NOT NULL, usage TEXT);
     CREATE TABLE IF NOT EXISTS tool_results (session_id TEXT NOT NULL, call_id TEXT NOT NULL, result TEXT NOT NULL, PRIMARY KEY(session_id, call_id));
+    CREATE TABLE IF NOT EXISTS contact_requests (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL, message TEXT NOT NULL, language TEXT NOT NULL, created INTEGER NOT NULL, send_status TEXT NOT NULL, provider_id TEXT);
+    CREATE TABLE IF NOT EXISTS access_requests (id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL, clinic TEXT NOT NULL, language TEXT NOT NULL, created INTEGER NOT NULL, send_status TEXT NOT NULL, provider_id TEXT, redeemed INTEGER);
+    CREATE TABLE IF NOT EXISTS access_links (hash TEXT PRIMARY KEY, request_id TEXT NOT NULL REFERENCES access_requests(id), email TEXT NOT NULL, expires INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS access_links_email ON access_links(email);
   `);
   migrateDoctorCalendars(database);
   globalDb.bookingDb = database;
-  globalDb.bookingSchema = 1;
+  globalDb.bookingSchema = 3;
   return database;
 }
 

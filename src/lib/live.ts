@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { defaultVoice, type Voice } from './voices';
 import { randomUUID } from 'node:crypto';
 import { db } from './db';
 import type { Language } from './clinic';
@@ -21,12 +22,12 @@ function reserve(user: User) {
   }).immediate();
 }
 
-export function voiceSessionConfig(user: User, language: Language) {
+export function voiceSessionConfig(user: User, language: Language, voice: Voice = defaultVoice) {
   const { instructions, backend } = createAgentPrompts(user, language);
-  return { model: 'gpt-live-1', instructions, delegation: { type: 'responses', responses: { model: process.env.LIVE_BACKEND_MODEL || 'gpt-5.6-luna', instructions: backend, tools: toolDefinitions, tool_choice: 'auto', parallel_tool_calls: false } } };
+  return { model: 'gpt-live-1', instructions, audio: { output: { voice } }, delegation: { type: 'responses', responses: { model: process.env.LIVE_BACKEND_MODEL || 'gpt-5.6-luna', instructions: backend, reasoning: { effort: 'low' }, tools: toolDefinitions, tool_choice: 'auto', parallel_tool_calls: false } } };
 }
 
-export async function startVoice(user: User, language: Language, sdp: string, requestSignal: AbortSignal) {
+export async function startVoice(user: User, language: Language, sdp: string, requestSignal: AbortSignal, voice: Voice = defaultVoice) {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new AppError('voice_not_configured', 503);
   const id = reserve(user);
@@ -36,7 +37,7 @@ export async function startVoice(user: User, language: Language, sdp: string, re
   try {
     const response = await fetch('https://api.openai.com/v1/live/sessions', {
       method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session: voiceSessionConfig(user, language), transport: { type: 'webrtc', sdp } }),
+      body: JSON.stringify({ session: voiceSessionConfig(user, language, voice), transport: { type: 'webrtc', sdp } }),
       signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) {

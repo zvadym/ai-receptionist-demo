@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Language } from '@/lib/clinic';
+import { greetingCommand } from '@/lib/live-events';
 
 type Transcript = { speaker: 'user' | 'assistant'; text: string };
 type Resources = { peer?: RTCPeerConnection; channel?: RTCDataChannel; mic?: MediaStream; audio?: HTMLAudioElement; abort?: AbortController; timer?: ReturnType<typeof setInterval>; closingTimer?: ReturnType<typeof setTimeout>; connectedTimer?: ReturnType<typeof setTimeout> };
@@ -25,8 +26,10 @@ export function useVoice(onChange: () => void) {
   useEffect(() => () => cleanup(), [cleanup]);
 
   function stop() {
-    setStatus('closing');
     const r = resources.current;
+    // getUserMedia may wait indefinitely for a permission dialog. No paid session exists yet.
+    if (!r.peer) { cleanup(); setStatus('idle'); return; }
+    setStatus('closing');
     r.mic?.getTracks().forEach(t => { t.enabled = false; });
     if (r.channel?.readyState === 'open') r.channel.send(JSON.stringify({ type: 'session.close' }));
     else r.abort?.abort();
@@ -61,6 +64,7 @@ export function useVoice(onChange: () => void) {
         try { event = JSON.parse(message.data); } catch { return; }
         if (event.type === 'session.started') {
           clearTimeout(r.connectedTimer); setStatus('active');
+          channel.send(JSON.stringify(greetingCommand(language)));
           const end = Date.now() + 300_000;
           r.timer = setInterval(() => setRemaining(Math.max(0, Math.ceil((end - Date.now()) / 1000))), 1000);
         }
@@ -103,7 +107,7 @@ export function useVoice(onChange: () => void) {
       }
       if (!completed) setError('incomplete_close');
     } catch (e) {
-      if (!(e instanceof DOMException && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'voice_failed');
+      if (resources.current === r && !(e instanceof DOMException && e.name === 'AbortError')) setError(e instanceof Error ? e.message : 'voice_failed');
     } finally {
       clearTimeout(r.closingTimer);
       if (resources.current === r) { cleanup(); setStatus('idle'); onChangeRef.current(); }

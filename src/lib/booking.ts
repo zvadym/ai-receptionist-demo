@@ -1,19 +1,19 @@
 import { DateTime } from 'luxon';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { services, timezone } from './clinic';
+import { services, doctors, doctorForService, timezone } from './clinic';
 import { db } from './db';
 import { AppError } from './errors';
 
-export type Booking = { id: string; user_id: string; service_id: string; start: string; end: string; status: 'confirmed' | 'cancelled'; created: number };
+export type Booking = { id: string; user_id: string; doctor_id: string; service_id: string; start: string; end: string; status: 'confirmed' | 'cancelled'; created: number };
 export type Slot = { start: string; end: string };
 export const changeSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('create'), service_id: z.string(), start: z.string().max(40) }),
+  z.object({ action: z.literal('create'), doctor_id: z.string(), service_id: z.string(), start: z.string().max(40) }),
   z.object({ action: z.literal('reschedule'), booking_id: z.string(), start: z.string().max(40) }),
   z.object({ action: z.literal('cancel'), booking_id: z.string() }),
 ]);
 export type Change = z.infer<typeof changeSchema>;
-export type Proposal = { id: string; change: Change; booking?: Booking; service_id: string; start: string; end: string; expires: number };
+export type Proposal = { id: string; change: Change; booking?: Booking; doctor_id: string; service_id: string; start: string; end: string; expires: number };
 
 export function clinicDates() {
   const today = DateTime.now().setZone(timezone).startOf('day');
@@ -25,6 +25,17 @@ export function getService(id: string) {
   if (!service) throw new AppError('invalid_service');
   return service;
 }
+export function getDoctor(id: string) {
+  const doctor = doctors.find(d => d.id === id);
+  if (!doctor) throw new AppError('invalid_doctor');
+  return doctor;
+}
+export function eligibleDoctor(id: string, serviceId: string) {
+  getService(serviceId);
+  const doctor = getDoctor(id);
+  if (!doctor.service_ids.includes(serviceId)) throw new AppError('doctor_service_unavailable');
+  return doctor;
+}
 export function listBookings(userId: string) {
   return db().prepare('SELECT * FROM bookings WHERE user_id=? ORDER BY start').all(userId) as Booking[];
 }
@@ -33,12 +44,13 @@ function ownedBooking(userId: string, id: string) {
   if (!row) throw new AppError('booking_not_found', 404);
   return row;
 }
-export function listSlots(serviceId: string, date: string, excludeId = ''): Slot[] {
+export function listSlots(serviceId: string, date: string, excludeId = '', doctorId = doctorForService(serviceId).id): Slot[] {
   const service = getService(serviceId);
+  eligibleDoctor(doctorId, serviceId);
   if (!clinicDates().includes(date)) throw new AppError('invalid_date');
   const day = DateTime.fromISO(date, { zone: timezone }).startOf('day');
-  const busy = db().prepare("SELECT start,end FROM bookings WHERE status='confirmed' AND id!=? AND start<? AND end>?")
-    .all(excludeId, day.plus({ days: 1 }).toUTC().toISO(), day.toUTC().toISO()) as Slot[];
+  const busy = db().prepare("SELECT start,end FROM bookings WHERE status='confirmed' AND doctor_id=? AND id!=? AND start<? AND end>?")
+    .all(doctorId, excludeId, day.plus({ days: 1 }).toUTC().toISO(), day.toUTC().toISO()) as Slot[];
   const result: Slot[] = [];
   for (let minute = 9 * 60; minute + service.minutes <= 17 * 60; minute += 30) {
     if (minute < 13 * 60 && minute + service.minutes > 12 * 60) continue;
@@ -50,10 +62,10 @@ export function listSlots(serviceId: string, date: string, excludeId = ''): Slot
   }
   return result;
 }
-function available(serviceId: string, start: string, excludeId = '') {
+function available(serviceId: string, doctorId: string, start: string, excludeId = '') {
   const time = DateTime.fromISO(start, { setZone: true });
   if (!time.isValid || !/(Z|[+-]\d{2}:\d{2})$/.test(start)) throw new AppError('invalid_date');
-  const slot = listSlots(serviceId, time.setZone(timezone).toISODate()!, excludeId).find(s => s.start === time.toUTC().toISO());
+  const slot = listSlots(serviceId, time.setZone(timezone).toISODate()!, excludeId, doctorId).find(s => s.start === time.toUTC().toISO());
   if (!slot) throw new AppError('slot_unavailable', 409);
   return slot;
 }
@@ -66,8 +78,9 @@ export function prepareChange(userId: string, input: Change): Proposal {
     if (Date.parse(booking.start) <= Date.now()) throw new AppError('booking_in_past', 409);
   }
   const serviceId = change.action === 'create' ? change.service_id : booking!.service_id;
-  const slot = change.action === 'cancel' ? booking! : available(serviceId, change.start, booking?.id);
-  const proposal: Proposal = { id: randomUUID(), change, booking, service_id: serviceId, start: slot.start, end: slot.end, expires: Date.now() + 5 * 60_000 };
+  const doctorId = change.action === 'create' ? change.doctor_id : booking!.doctor_id;
+  const slot = change.action === 'cancel' ? booking! : available(serviceId, doctorId, change.start, booking?.id);
+  const proposal: Proposal = { id: randomUUID(), change, booking, doctor_id: doctorId, service_id: serviceId, start: slot.start, end: slot.end, expires: Date.now() + 5 * 60_000 };
   db().transaction(() => {
     db().prepare('UPDATE proposals SET expires=0 WHERE user_id=? AND result IS NULL').run(userId);
     db().prepare('INSERT INTO proposals(id,user_id,payload,expires) VALUES (?,?,?,?)').run(proposal.id, userId, JSON.stringify(proposal), proposal.expires);
@@ -91,9 +104,9 @@ export function confirmChange(userId: string, id: string): Booking {
     const { change } = proposal;
     let booking: Booking;
     if (change.action === 'create') {
-      const slot = available(change.service_id, change.start);
-      booking = { id: randomUUID(), user_id: userId, service_id: change.service_id, ...slot, status: 'confirmed', created: Date.now() };
-      db().prepare('INSERT INTO bookings(id,user_id,service_id,start,end,status,created) VALUES (@id,@user_id,@service_id,@start,@end,@status,@created)').run(booking);
+      const slot = available(change.service_id, change.doctor_id, change.start);
+      booking = { id: randomUUID(), user_id: userId, doctor_id: change.doctor_id, service_id: change.service_id, ...slot, status: 'confirmed', created: Date.now() };
+      db().prepare('INSERT INTO bookings(id,user_id,doctor_id,service_id,start,end,status,created) VALUES (@id,@user_id,@doctor_id,@service_id,@start,@end,@status,@created)').run(booking);
     } else {
       booking = ownedBooking(userId, change.booking_id);
       if (booking.status !== 'confirmed') throw new AppError('booking_cancelled', 409);
@@ -101,7 +114,7 @@ export function confirmChange(userId: string, id: string): Booking {
       // A preview of an old appointment must never modify a subsequently changed appointment.
       if (booking.start !== proposal.booking?.start) throw new AppError('proposal_expired', 409);
       if (change.action === 'cancel') booking.status = 'cancelled';
-      else Object.assign(booking, available(booking.service_id, change.start, booking.id));
+      else Object.assign(booking, available(booking.service_id, booking.doctor_id, change.start, booking.id));
       db().prepare('UPDATE bookings SET start=@start,end=@end,status=@status WHERE id=@id').run(booking);
     }
     db().prepare('UPDATE proposals SET result=? WHERE id=?').run(JSON.stringify(booking), id);

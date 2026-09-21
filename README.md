@@ -25,9 +25,12 @@ Set `OPENAI_API_KEY` in `.env.local`, restart the development server, allow the 
 - Sideband: the server attaches to `/v1/live/sessions/{id}/attach` and is the sole tool executor.
 - An authenticated streaming HTTP request owns the local server connection. The server closes at five minutes or when the HTTP stream disconnects, waits for `session.closed`, and records incomplete finalization separately.
 - Up to three starts per visitor and twenty starts globally per rolling 24-hour window. A start reserves quota before calling OpenAI, including failed starts. This is a session-count cap, not a precise dollar budget; backend token usage is additional.
-- Tools prepare a change, ask for confirmation and commit after the next affirmative reply. The same preview is displayed in the UI and may also be confirmed there. Voice interpretation of consent still needs real-model evaluation. For real clinic use, stronger identity verification and a reviewed confirmation policy are required.
+- Tools prepare a change, ask for confirmation and commit after the next affirmative reply. The same preview is displayed in the UI and may also be confirmed there. One English create/reschedule/cancel flow has passed with the real model; ambiguous replies and interruptions need broader evaluation. For real clinic use, stronger identity verification and a reviewed confirmation policy are required.
+- The receptionist clarifies the reason for a visit, then proactively checks availability and offers the clinician, service, price, duration and up to two actual times. With no date preference it starts with the earliest available appointments. A slot is prepared only after the visitor chooses it; declining an offer creates no booking. Doctor names, specialties and service eligibility come from `get_doctors`; `find_available_slots` requires the returned doctor ID and returns that doctor, service details and checked times. Booking tools reject unknown doctors and return the same doctor throughout preview, confirmation, rescheduling and cancellation. Each service has its own fictional doctor and independent calendar: checkup → Dr. Anna Weber, cleaning → Dr. Max Hoffmann, filling → Dr. Lara Fischer. Appointments persist doctor_id; overlap checks apply per doctor and service/doctor mismatches are rejected. Existing local appointments are migrated by service, and old unconfirmed previews expire. No doctor roster or price catalog is copied into model prompts.
 
-Real-provider voice, audio interruption, multilingual recognition, sideband timing and final billing have **not** been validated without credentials. No mock speech is presented as a working OpenAI session. Abrupt server process termination cannot run the close handler; a failed sideband attach is recorded as incomplete and requires provider-side usage review. Before public deployment, add an independent expiry/reconciliation mechanism and validate actual provider session expiration.
+Real API checks on 2026-09-20 used `gpt-live-1` with `gpt-5.6-terra`: Ukrainian/German synthesized questions produced correct service answers and a real knowledge tool call; English speech created, rescheduled and cancelled an isolated test booking with separate confirmations. A Node WebRTC peer exercised the application's session creation and server sideband, reached `session.started`, then closed with final usage persisted. This does not verify physical microphone capture or speaker playback in a browser: the in-app browser's microphone request remained pending. Audio interruptions, the full five-minute timeout and provider billing reconciliation remain unverified. No mock speech is presented as a working OpenAI session.
+
+Abrupt server process termination cannot run the close handler; a failed sideband attach is recorded as incomplete and requires provider-side usage review. Before public deployment, add an independent expiry/reconciliation mechanism and validate actual provider session expiration.
 
 ## Send real email instead of using the test inbox
 
@@ -52,6 +55,16 @@ npm run build
 ```
 
 Domain tests cover code reuse/expiry/lockout, authorization, overlapping bookings, replay, proposal expiry, cancellation/rescheduling, Vienna DST and the Live nested tool event protocol. Provider protocol tests use event fixtures; they do not prove a real voice conversation works.
+
+For an opt-in **paid** real speech/tool test on macOS (`say` and `afconvert` required):
+
+```sh
+node --env-file=.env.local --import tsx scripts/live-smoke.ts uk de en
+# Regression: vague booking intent -> tooth pain -> proactive times -> no booking on refusal
+node --env-file=.env.local --import tsx scripts/live-smoke.ts --proactive uk de en
+```
+
+This streams locally synthesized speech into the real Live WebSocket API and executes the same session configuration, tool router and booking functions used by the app. It uses a separate SQLite database, saves transcripts/audio under ignored `.data/live-smoke-*`, and waits for final session usage. It does not exercise browser capture or the WebRTC sideband. Use `--proactive --service=cleaning en` (or `checkup`/`filling`) to verify a specific service routes to its assigned doctor. Pass a single language for a shorter run; the English scenario includes create/reschedule/cancel. Run manually only, since it incurs API charges and model responses can vary.
 
 ## Before Vercel deployment (deferred)
 

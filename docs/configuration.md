@@ -1,6 +1,26 @@
 # Configuration and deployment
 
-Start with the [README](../README.md) and copy [`.env.example`](../.env.example) to `.env.local`. Keep credentials server-side; do not prefix them with `NEXT_PUBLIC_`.
+This guide covers running the current clinic demo and configuring its shared services. See the [project overview](../README.md) and [core/demo architecture](architecture.md) for scope and development direction. Keep credentials server-side; do not prefix them with `NEXT_PUBLIC_`.
+
+## Quick start
+
+You'll need Node.js 22 and npm.
+
+```sh
+git clone https://github.com/zvadym/ai-receptionist-demo.git
+cd ai-receptionist-demo
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000), then:
+
+1. Request demo access with a made-up name and an email such as `demo@example.test`.
+2. Select **Open development inbox** on the access form and follow your access link.
+3. Press **Open my demo**, choose a service and a time, then confirm your appointment.
+
+No API key is needed for this local booking flow. For German or Ukrainian, use the language switcher or add `?l=de` / `?l=uk` to the URL. The clinic, clinicians and sample data are fictional; use synthetic details when trying the demo. It is not a medical service or a production patient system.
 
 ## Local development
 
@@ -94,3 +114,12 @@ node --env-file=.env.local --import tsx scripts/import-sqlite.ts
 ```
 
 Voice smoke tests use a separate PGlite database and save transcripts/audio in ignored `.data/live-smoke-*` paths. They do not test physical browser audio capture. Never publish local databases, service-account keys, transcripts, access-link messages or deployment environment files.
+
+
+## Contributing
+
+Contributions to the core, integrations, demo and documentation are welcome. For a new integration, describe the intended workflow and provider requirements first; see the [architecture notes](architecture.md) for the current boundaries.
+
+Before opening a code pull request, run `npm test`, `npm run typecheck` and `npm run build`. Describe what changed and how you checked it. Documentation-only changes should be checked for accurate claims and working links.
+
+Keep examples synthetic and credentials out of commits. Do not include real patient records, access links or private provider logs in issues, screenshots or test fixtures.

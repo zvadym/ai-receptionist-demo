@@ -6,3 +6,25 @@ node_modules/
 *.tsbuildinfo
 .DS_Store
 .vercel
+
+# Local research, generated deliverables and browser artifacts
+/output/
+/tmp/
+/docs/research/
+/docs/superpowers/plans/2026-10-19-linden-pdf.md
+/playwright-report/
+/test-results/
+/.playwright-cli/
+
+# Credentials and local database exports
+*.pem
+*.key
+*service-account*.json
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.dump
+*.log
+
+/.playwright-mcp/

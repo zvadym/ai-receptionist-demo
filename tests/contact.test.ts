@@ -10,6 +10,7 @@ process.env.APP_DATA_DIR = folder;
 process.env.MAIL_MODE = 'resend';
 process.env.RESEND_API_KEY = 'test-key';
 process.env.RESEND_FROM = 'Linden <demo@example.test>';
+process.env.CONTACT_EMAIL = 'maintainer@example.test';
 after(async () => { (await closeDb()); rmSync(folder, { recursive: true, force: true }); });
 const input = { name: 'Contact Test', email: 'Contact@Example.test', message: 'Please discuss our calendar integration.', language: 'en', website: '' };
 test('contact persists before notification and sends to the developer with visitor reply-to', async () => {
@@ -19,7 +20,7 @@ test('contact persists before notification and sends to the developer with visit
         assert.equal(row.message, input.message);
         assert.equal(new Headers(options?.headers).get('Idempotency-Key'), `developer-call/${row.id}`);
         const mail = JSON.parse(String(options?.body));
-        assert.deepEqual(mail.to, ['contact@example.test']);
+        assert.deepEqual(mail.to, ['maintainer@example.test']);
         assert.equal(mail.reply_to, 'contact@example.test');
         assert.ok(mail.text.includes(input.message));
         return Response.json({ id: 'contact-provider-id' });
@@ -33,6 +34,45 @@ test('provider failures retain the request and do not expose provider errors', a
     assert.equal(((await query("SELECT send_status FROM contact_requests WHERE email=$1", ['failed@example.test'])).rows[0] as {
         send_status: string;
     }).send_status, 'failed');
+});
+test('missing or invalid contact recipient never sends externally and retains the request', async () => {
+    const previous = process.env.CONTACT_EMAIL;
+    try {
+        for (const [index, recipient] of [undefined, 'not-an-email'].entries()) {
+            if (recipient === undefined) delete process.env.CONTACT_EMAIL;
+            else process.env.CONTACT_EMAIL = recipient;
+            let sends = 0;
+            const email = `missing-recipient-${index}@example.test`;
+            await assert.rejects(requestDeveloperCall({ ...input, email }, (async () => {
+                sends++;
+                return Response.json({ id: 'unexpected' });
+            }) as typeof fetch), /contact_delivery_failed/);
+            assert.equal(sends, 0);
+            assert.equal((await query('SELECT send_status FROM contact_requests WHERE email=$1', [email])).rows[0].send_status, 'failed');
+        }
+    } finally {
+        if (previous === undefined) delete process.env.CONTACT_EMAIL;
+        else process.env.CONTACT_EMAIL = previous;
+    }
+});
+test('local contact works without a configured recipient or an external request', async () => {
+    const previousRecipient = process.env.CONTACT_EMAIL;
+    const previousMode = process.env.MAIL_MODE;
+    delete process.env.CONTACT_EMAIL;
+    process.env.MAIL_MODE = 'local';
+    try {
+        const result = await requestDeveloperCall({ ...input, email: 'local@example.test' }, (async () => {
+            assert.fail('local mode must not send externally');
+        }) as typeof fetch);
+        assert.equal(result.mailMode, 'local');
+        const mail = (await query('SELECT recipient FROM mail')).rows[0];
+        assert.equal(mail.recipient, 'contact@example.test');
+    } finally {
+        if (previousRecipient === undefined) delete process.env.CONTACT_EMAIL;
+        else process.env.CONTACT_EMAIL = previousRecipient;
+        if (previousMode === undefined) delete process.env.MAIL_MODE;
+        else process.env.MAIL_MODE = previousMode;
+    }
 });
 test('invalid input and honeypot do not persist; repeated requests are limited', async () => {
     const before = ((await query("SELECT count(*) AS total FROM contact_requests", [])).rows[0] as {

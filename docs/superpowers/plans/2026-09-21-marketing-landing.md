@@ -32,9 +32,9 @@ Self-review: user requirements map to the tasks above; no clinic/calendar backen
 
 
 ## Resend activation — 2026-09-21
-- User supplied contact@example.test. Configured ignored .env.local with RESEND_FROM="Linden AI <contact@example.test>" and MAIL_MODE=resend.
+- Configured the verified sender in ignored `.env.local` with `MAIL_MODE=resend`. Sender details are deployment-specific.
 - Submitted a synthetic request through the running application's /api/access/request endpoint to Resend's documented delivered+booking-demo@resend.dev test sink.
-- Endpoint returned HTTP 200, sent=true, mailMode=resend. Persisted request has send_status=sent and provider_id=example-message-id.
+- Endpoint returned HTTP 200, sent=true, mailMode=resend. Persisted request has send_status=sent and a provider message ID.
 - This verifies Resend accepted the real sender and application payload; it does not claim delivery to a human inbox. APP_ORIGIN remains local until deployment.
 
 ## Telephony row

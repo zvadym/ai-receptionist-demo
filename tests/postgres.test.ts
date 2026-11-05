@@ -12,7 +12,8 @@ import { clinicDates, listSlots, prepareChange, confirmChange, listBookings } fr
 import { reserveVoice } from '../src/lib/live';
 import { reconcileVoiceSessions } from '../src/lib/live-cleanup';
 const folder = mkdtempSync(join(tmpdir(), 'linden-postgres-'));
-process.env.APP_DATA_DIR = folder;
+// A fresh clone has no data directory; exercise first-run creation as well.
+process.env.APP_DATA_DIR = join(folder, 'fresh', 'data');
 delete process.env.DATABASE_URL;
 after(async () => { await closeDb(); rmSync(folder, { recursive: true, force: true }); });
 const user = async () => {

@@ -2,27 +2,19 @@
 
 Status (2026-09-21): calendar writes implemented with PostgreSQL operation intents, deterministic Google event IDs, etag protection, patient/contact/summary payloads and retry reconciliation. Real create/read/move/read/delete checks passed for all three doctor calendars. The sections below retain the original integration design; current implementation details are in `../superpowers/specs/2026-09-21-google-calendar-writes-design.md`.
 
-## Current Google Cloud setup
+## Deployment-specific setup
 
-- Project name: `booking-assistant`; project ID: `example-cloud-project`.
-- Service account: `booking-assistant@example-cloud-project.iam.gserviceaccount.com`.
-- Google Calendar API (`calendar-json.googleapis.com`): enabled.
-- The user created and downloaded a JSON key. Place it at `.data/google-calendar-service-account.json` (rename the downloaded file). This directory is ignored by Git; do not paste or commit the credential.
-- Credential present at the local path. All three calendars returned HTTP 200 and `accessRole: writer` through that service account. Read-only viewing now uses Google FreeBusy through the application. Event writes and booking synchronization have not been enabled.
-- No project-wide IAM roles, domain-wide delegation, or OAuth consent-screen configuration is needed for the proposed explicitly shared-calendar flow.
+Create your own Google Cloud project, enable the Google Calendar API and share three dedicated calendars with a service account. Keep its JSON credential in ignored local storage or your deployment's secret manager. No project-wide administrator role or domain-wide delegation is needed for explicitly shared calendars.
 
+The three demo doctors are fictional. Supply your own server-only calendar IDs:
 
-## Verified doctor-to-calendar mapping
+| Fictional doctor / service | Environment variable |
+| --- | --- |
+| Anna Weber / checkup | `GOOGLE_CALENDAR_ANNA_WEBER` |
+| Max Hoffmann / cleaning | `GOOGLE_CALENDAR_MAX_HOFFMANN` |
+| Lara Fischer / filling | `GOOGLE_CALENDAR_LARA_FISCHER` |
 
-The user supplied the calendars in this order. `.env.local` stores the credential path and the following server-only environment variables; none use a `NEXT_PUBLIC_` prefix. `.env.example` documents the keys without deployment-specific IDs. The overview uses these mappings for live availability reads; the booking mutation engine uses PostgreSQL and writes confirmed events to Google.
-
-| Doctor / service | Calendar | Environment variable | Calendar ID |
-| --- | --- | --- | --- |
-| Anna Weber / checkup | Booking assistant 1 | `GOOGLE_CALENDAR_ANNA_WEBER` | `example-calendar-1` |
-| Max Hoffmann / cleaning | Booking assistant 2 | `GOOGLE_CALENDAR_MAX_HOFFMANN` | `example-calendar-2` |
-| Lara Fischer / filling | Booking assistant 3 | `GOOGLE_CALENDAR_LARA_FISCHER` | `example-calendar-3` |
-
-All three calendars use `Europe/Vienna` and grant the service account `writer` access. The booking provider must use these server-side mappings rather than accepting calendar IDs from the browser or model.
+Use `Europe/Vienna` for this demo and grant the service account writer access to each calendar. Never accept calendar IDs from the browser or model. The overview reads availability; confirmed booking mutations write private events.
 
 ## Scope
 
@@ -38,9 +30,9 @@ The assistant summarizes only information actually provided by the visitor, with
 
 Example:
 
-    Title: Professional cleaning — Olena Kovalenko
-    Patient: Olena Kovalenko
-    Email: olena@example.test
+    Title: Professional cleaning — Demo Patient
+    Patient: Demo Patient
+    Email: patient@example.test
     Phone: +43 … (only if supplied)
     Doctor: Dr. Max Hoffmann
     Service: Professional cleaning, 60 minutes

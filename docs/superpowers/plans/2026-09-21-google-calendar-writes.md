@@ -15,4 +15,4 @@
 
 ## Production verification
 
-Deployed on `https://demo.example.com`. Both existing future bookings (Anna and Max) were exported and read back from Google with matching times and patient/contact fields. Authenticated production HTTP create, idempotent confirmation, move and cancellation passed against Google; the synthetic event was removed. The production WebRTC voice/tool smoke also passed with the updated strict tool schemas and confirmed session closure.
+Deployed on the configured production domain (deployment-specific address omitted). Both existing future bookings (Anna and Max) were exported and read back from Google with matching times and patient/contact fields. Authenticated production HTTP create, idempotent confirmation, move and cancellation passed against Google; the synthetic event was removed. The production WebRTC voice/tool smoke also passed with the updated strict tool schemas and confirmed session closure.

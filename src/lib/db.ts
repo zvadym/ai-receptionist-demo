@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { Pool, types } from 'pg';
 import { attachDatabasePool } from '@vercel/functions';
@@ -33,7 +34,9 @@ async function database(): Promise<Database> {
       }
       if (process.env.VERCEL) throw new Error('DATABASE_URL is required on Vercel');
       const { PGlite } = await import('@electric-sql/pglite');
-      const local = new PGlite(resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR || '.data', 'postgres'), { parsers: { 20: Number } });
+      const dataDir = resolve(/* turbopackIgnore: true */ process.env.APP_DATA_DIR || '.data');
+      await mkdir(dataDir, { recursive: true });
+      const local = new PGlite(resolve(dataDir, 'postgres'), { parsers: { 20: Number } });
       await local.exec(schema);
       return { local };
     })().catch(error => { state.lindenDatabase = undefined; throw error; });

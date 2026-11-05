@@ -8,7 +8,7 @@
 
 ## Verified before provisioning
 
-- Vercel project linked to GitHub; assigned domain: `example-project.vercel.app`.
+- Vercel project linked to GitHub; deployment-specific assigned domain omitted.
 - Production secrets and configuration uploaded without committing credentials; backend model is `gpt-5.6-terra`.
 - 33 automated tests passed, production build passed.
 - Real Gleam voice smoke passed create, reschedule and cancel with separate spoken confirmations (162 seconds).
@@ -18,7 +18,7 @@
 
 ## Provisioning update
 
-User accepted Neon terms and supplied `demo.example.com` as the production domain. Set APP_ORIGIN to that HTTPS origin. Cleanup cron runs every 15 minutes so an idle Neon database can scale to zero; normal voice sessions still close after five minutes, but recovery after a terminated server process may wait up to 15 minutes. Free-plan usage limits still apply.
+The deployment uses a custom domain. Set APP_ORIGIN to the actual HTTPS origin; `demo.example.com` is a documentation placeholder. Cleanup cron runs every 15 minutes so an idle Neon database can scale to zero; normal voice sessions still close after five minutes, but recovery after a terminated server process may wait up to 15 minutes. Free-plan usage limits still apply.
 
 ## Production verification
 

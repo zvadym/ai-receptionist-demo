@@ -18,17 +18,18 @@ export async function requestDeveloperCall(value: unknown, fetcher: typeof fetch
     (await query("INSERT INTO contact_requests(id,name,email,message,language,created,send_status) VALUES ($1,$2,$3,$4,$5,$6,$7)", [id, input.name, email, input.message, input.language, Date.now(), 'pending']));
     const subject = 'Developer call request · Linden AI';
     const text = `Name: ${input.name}\nEmail: ${email}\nLanguage: ${input.language}\n\n${input.message}`;
+    const recipient = process.env.CONTACT_EMAIL?.trim();
     try {
         if (localMailEnabled()) {
-            (await query("INSERT INTO mail(id,recipient,subject,body,created) VALUES ($1,$2,$3,$4,$5)", [id, 'contact@example.test', subject, text, Date.now()]));
+            (await query("INSERT INTO mail(id,recipient,subject,body,created) VALUES ($1,$2,$3,$4,$5)", [id, recipient || 'contact@example.test', subject, text, Date.now()]));
             (await query("UPDATE contact_requests SET send_status='local' WHERE id=$1", [id]));
             return { saved: true, mailMode: 'local' };
         }
-        if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM)
+        if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM || !z.email().safeParse(recipient).success)
             throw new Error('mail_not_configured');
         const response = await fetcher('https://api.resend.com/emails', {
             method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json', 'Idempotency-Key': `developer-call/${id}` },
-            body: JSON.stringify({ from: process.env.RESEND_FROM, to: ['contact@example.test'], reply_to: email, subject, text }),
+            body: JSON.stringify({ from: process.env.RESEND_FROM, to: [recipient], reply_to: email, subject, text }),
             signal: AbortSignal.timeout(15000),
         });
         const result = await response.json();
